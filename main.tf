@@ -11,7 +11,7 @@ module "network" {
   resource_group_name     = azurerm_resource_group.public.name
   vnet_name               = "vnet-${var.prefix}"
   vms_subnet_name         = "vms-subnet-${var.prefix}"
-  vpn_subnet_name         = "vpn-subnet-${var.prefix}"
+  vpn_subnet_name         = "GatewaySubnet"
 }
 
 module "ubuntu-vm-public-key-auth" {
@@ -129,4 +129,38 @@ data "azurerm_key_vault_secret" "vpn-root-certificate" {
     module.keyvault.id,
     module.keyvault_secrets
   ]
+}
+
+resource "azurerm_public_ip" "vpn_gw_public_ip" {
+  name                = "vpn-gw-public-ip-${var.prefix}"
+  location            = azurerm_resource_group.public.location
+  resource_group_name = azurerm_resource_group.public.name
+  allocation_method   = "Dynamic"
+}
+
+resource "azurerm_virtual_network_gateway" "vpn_gw" {
+  name                = "vpn-gw-${var.prefix}"
+  location            = azurerm_resource_group.public.location
+  resource_group_name = azurerm_resource_group.public.name
+  type                = "Vpn"
+  vpn_type            = "RouteBased"
+  active_active       = false
+  enable_bgp          = false
+  sku                 = "Basic"
+
+  ip_configuration {
+    name                          = "vpn-gw-ipconfig-${var.prefix}"
+    public_ip_address_id          = azurerm_public_ip.vpn_gw_public_ip.id
+    private_ip_address_allocation = "Dynamic"
+    subnet_id                     = module.network.vpn_subnet_id
+  }
+
+  vpn_client_configuration {
+    address_space = ["172.17.0.0/24"]
+
+    root_certificate {
+      name             = "VPNROOT"
+      public_cert_data = data.azurerm_key_vault_secret.vpn-root-certificate.value
+    }
+  }
 }

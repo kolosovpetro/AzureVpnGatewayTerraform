@@ -72,7 +72,9 @@ sas_token            = "sas_token"
 
 | Name | Type |
 |------|------|
+| [azurerm_public_ip.vpn_gw_public_ip](https://registry.terraform.io/providers/hashicorp/azurerm/3.71.0/docs/resources/public_ip) | resource |
 | [azurerm_resource_group.public](https://registry.terraform.io/providers/hashicorp/azurerm/3.71.0/docs/resources/resource_group) | resource |
+| [azurerm_virtual_network_gateway.vpn_gw](https://registry.terraform.io/providers/hashicorp/azurerm/3.71.0/docs/resources/virtual_network_gateway) | resource |
 | [azurerm_client_config.current](https://registry.terraform.io/providers/hashicorp/azurerm/3.71.0/docs/data-sources/client_config) | data source |
 | [azurerm_key_vault_secret.vpn-root-certificate](https://registry.terraform.io/providers/hashicorp/azurerm/3.71.0/docs/data-sources/key_vault_secret) | data source |
 
