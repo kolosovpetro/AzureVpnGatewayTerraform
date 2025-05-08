@@ -2,143 +2,144 @@ data "azurerm_client_config" "current" {}
 
 resource "azurerm_resource_group" "public" {
   location = var.resource_group_location
-  name     = "rg-p2s-vpn-${var.prefix}"
+  name     = "rg-vpn-gateway-${var.prefix}"
 }
 
-module "network" {
-  source                  = "./modules/network"
-  resource_group_location = azurerm_resource_group.public.location
-  resource_group_name     = azurerm_resource_group.public.name
-  vnet_name               = "vnet-${var.prefix}"
-  vms_subnet_name         = "vms-subnet-${var.prefix}"
-  vpn_subnet_name         = "GatewaySubnet"
-}
+##########################################################################
+# NETWORK
+##########################################################################
 
-module "ubuntu-vm-public-key-auth" {
-  source                            = "./modules/ubuntu-vm-public-key-auth"
-  ip_configuration_name             = "key-auth-vm-ipconfig-${var.prefix}"
-  network_interface_name            = "key-auth-vm-nic-${var.prefix}"
-  os_profile_admin_public_key_path  = var.os_profile_admin_public_key_path
-  os_profile_admin_username         = var.os_profile_admin_username
-  os_profile_computer_name          = "key-auth-vm-${var.prefix}"
-  resource_group_location           = azurerm_resource_group.public.location
-  resource_group_name               = azurerm_resource_group.public.name
-  storage_image_reference_offer     = var.storage_image_reference_offer
-  storage_image_reference_publisher = var.storage_image_reference_publisher
-  storage_image_reference_sku       = var.storage_image_reference_sku
-  storage_image_reference_version   = var.storage_image_reference_version
-  storage_os_disk_caching           = var.storage_os_disk_caching
-  storage_os_disk_create_option     = var.storage_os_disk_create_option
-  storage_os_disk_managed_disk_type = var.storage_os_disk_managed_disk_type
-  storage_os_disk_name              = "key-auth-vm-osdisk-${var.prefix}"
-  subnet_name                       = module.network.vms_subnet_name
-  vm_name                           = "key-auth-vm-${var.prefix}"
-  vm_size                           = var.vm_size
-  vnet_name                         = module.network.vnet_name
-  subnet_id                         = module.network.vms_subnet_id
-  nsg_name                          = "key-auth-vm-nsg-${var.prefix}"
-
-  depends_on = [
-    azurerm_resource_group.public,
-    module.network.vms_subnet_name,
-    module.network.vnet_name,
-    module.network.vms_subnet_id
-  ]
-}
-
-module "ubuntu-vm-password-auth" {
-  source                            = "./modules/ubuntu-vm-password-auth"
-  ip_configuration_name             = "pass-auth-vm-ipconfig-${var.prefix}"
-  network_interface_name            = "pass-auth-vm-nic-${var.prefix}"
-  os_profile_admin_password         = var.os_profile_admin_password
-  os_profile_admin_username         = var.os_profile_admin_username
-  os_profile_computer_name          = "pass-auth-vm-${var.prefix}"
-  resource_group_location           = azurerm_resource_group.public.location
-  resource_group_name               = azurerm_resource_group.public.name
-  storage_image_reference_offer     = var.storage_image_reference_offer
-  storage_image_reference_publisher = var.storage_image_reference_publisher
-  storage_image_reference_sku       = var.storage_image_reference_sku
-  storage_image_reference_version   = var.storage_image_reference_version
-  storage_os_disk_caching           = var.storage_os_disk_caching
-  storage_os_disk_create_option     = var.storage_os_disk_create_option
-  storage_os_disk_managed_disk_type = var.storage_os_disk_managed_disk_type
-  storage_os_disk_name              = "pass-auth-vm-osdisk-${var.prefix}"
-  subnet_name                       = module.network.vms_subnet_name
-  vm_name                           = "pass-auth-vm-${var.prefix}"
-  vm_size                           = var.vm_size
-  vnet_name                         = module.network.vnet_name
-  subnet_id                         = module.network.vms_subnet_id
-  nsg_name                          = "pass-auth-vm-nsg-${var.prefix}"
-
-  depends_on = [
-    azurerm_resource_group.public,
-    module.network.vms_subnet_name,
-    module.network.vnet_name,
-    module.network.vms_subnet_id
-  ]
-}
-
-module "storage" {
-  source                      = "./modules/storage"
-  storage_account_name        = "storlinuxvm${var.prefix}"
-  storage_account_replication = var.storage_account_replication
-  storage_account_tier        = var.storage_account_tier
-  storage_container_name      = "contvmlinux${var.prefix}"
-  storage_location            = azurerm_resource_group.public.location
-  storage_resource_group_name = azurerm_resource_group.public.name
-
-  depends_on = [
-    azurerm_resource_group.public
-  ]
-}
-
-module "keyvault" {
-  source                 = "./modules/keyvault"
-  kv_location            = azurerm_resource_group.public.location
-  kv_name                = "kv-linuxvm-${var.prefix}"
-  kv_resource_group_name = azurerm_resource_group.public.name
-  object_id              = data.azurerm_client_config.current.object_id
-  tenant_id              = data.azurerm_client_config.current.tenant_id
-
-  depends_on = [
-    azurerm_resource_group.public
-  ]
-}
-
-module "keyvault_secrets" {
-  source                         = "./modules/keyvault-secrets"
-  keyvault_id                    = module.keyvault.id
-  storage_access_url             = module.storage.storage_access_url
-  storage_account_name           = module.storage.storage_account_name
-  storage_connection_string      = module.storage.storage_connection_string
-  storage_container_name         = module.storage.storage_container_name
-  storage_primary_key            = module.storage.storage_primary_key
-  vpn_root_certificate_file_path = "Ps2VPN-RootCert.crt"
-
-  depends_on = [
-    module.keyvault,
-    module.storage
-  ]
-}
-
-data "azurerm_key_vault_secret" "vpn-root-certificate" {
-  name         = "Ps2VPN-RootCert"
-  key_vault_id = module.keyvault.id
-
-  depends_on = [
-    module.keyvault.id,
-    module.keyvault_secrets
-  ]
-}
-
-resource "azurerm_public_ip" "vpn_gw_public_ip" {
-  name                = "vpn-gw-public-ip-${var.prefix}"
+resource "azurerm_virtual_network" "public" {
+  name                = "vnet-${var.prefix}"
+  address_space       = ["10.10.0.0/24"]
   location            = azurerm_resource_group.public.location
   resource_group_name = azurerm_resource_group.public.name
-  allocation_method   = "Dynamic"
 }
 
-resource "azurerm_virtual_network_gateway" "vpn_gw" {
+resource "azurerm_subnet" "vm" {
+  name                 = "snet-vm-${var.prefix}"
+  resource_group_name  = azurerm_resource_group.public.name
+  virtual_network_name = azurerm_virtual_network.public.name
+  address_prefixes     = ["10.10.0.0/25"]
+}
+
+resource "azurerm_subnet" "gateway" {
+  name                 = "GatewaySubnet" #MUST BE HARDCODED
+  resource_group_name  = azurerm_resource_group.public.name
+  virtual_network_name = azurerm_virtual_network.public.name
+  address_prefixes     = ["10.10.0.128/25"]
+}
+
+##########################################################################
+# VIRTUAL MACHINES
+##########################################################################
+
+module "vm1" {
+  source                      = "github.com/kolosovpetro/AzureLinuxVMTerraform.git//modules/ubuntu-vm-key-auth-no-pip?ref=master"
+  resource_group_name         = azurerm_resource_group.public.name
+  resource_group_location     = azurerm_resource_group.public.location
+  subnet_id                   = azurerm_subnet.vm.id
+  ip_configuration_name       = "ipc-vm1-${var.prefix}"
+  network_interface_name      = "nic-vm1-${var.prefix}"
+  os_profile_computer_name    = "vm1-${var.prefix}"
+  storage_os_disk_name        = "osdisk-key-auth-vm-${var.prefix}"
+  vm_name                     = "vm1-${var.prefix}"
+  os_profile_admin_public_key = file("${path.root}/id_rsa.pub")
+  os_profile_admin_username   = "razumovsky_r"
+  network_security_group_id   = azurerm_network_security_group.public.id
+  vm_size                     = "Standard_B2ms"
+}
+
+module "vm2" {
+  source                      = "github.com/kolosovpetro/AzureLinuxVMTerraform.git//modules/ubuntu-vm-key-auth-no-pip?ref=master"
+  resource_group_name         = azurerm_resource_group.public.name
+  resource_group_location     = azurerm_resource_group.public.location
+  subnet_id                   = azurerm_subnet.vm.id
+  ip_configuration_name       = "ipc-vm2-${var.prefix}"
+  network_interface_name      = "nic-vm2-${var.prefix}"
+  os_profile_computer_name    = "vm2-${var.prefix}"
+  storage_os_disk_name        = "osdisk-vm2-${var.prefix}"
+  vm_name                     = "vm2-${var.prefix}"
+  os_profile_admin_public_key = file("${path.root}/id_rsa.pub")
+  os_profile_admin_username   = "razumovsky_r"
+  network_security_group_id   = azurerm_network_security_group.public.id
+  vm_size                     = "Standard_B2ms"
+}
+
+##########################################################################
+# KEYVAULT
+##########################################################################
+
+resource "azurerm_key_vault" "public" {
+  name                        = "kv-aks-${var.prefix}"
+  location                    = azurerm_resource_group.public.location
+  resource_group_name         = azurerm_resource_group.public.name
+  enabled_for_disk_encryption = true
+  tenant_id                   = data.azurerm_client_config.current.tenant_id
+  soft_delete_retention_days  = 7
+  purge_protection_enabled    = false
+  enable_rbac_authorization   = true
+  sku_name                    = "standard"
+}
+
+##########################################################################
+# RBAC
+##########################################################################
+
+resource "azurerm_role_assignment" "cli_rbac" {
+  scope                = azurerm_key_vault.public.id
+  role_definition_name = "Key Vault Administrator"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
+resource "azurerm_role_assignment" "azure_portal_rbac" {
+  scope                = azurerm_key_vault.public.id
+  role_definition_name = "Key Vault Administrator"
+  principal_id         = "89ab0b10-1214-4c8f-878c-18c3544bb547"
+}
+
+##########################################################################
+# SECRETS
+##########################################################################
+
+resource "azurerm_key_vault_secret" "root_certificate" {
+  name         = "VpnGateway-RootCert"
+  value        = filebase64("${path.root}/VpnGateway-RootCert.crt")
+  key_vault_id = azurerm_key_vault.public.id
+
+  depends_on = [
+    azurerm_role_assignment.cli_rbac
+  ]
+}
+
+data "azurerm_key_vault_secret" "root_certificate" {
+  name         = "VpnGateway-RootCert"
+  key_vault_id = azurerm_key_vault.public.id
+
+  depends_on = [
+    azurerm_key_vault_secret.root_certificate
+  ]
+}
+
+
+##########################################################################
+# VPN GATEWAY PUBLIC IP
+##########################################################################
+
+resource "azurerm_public_ip" "vpn_gw_pip" {
+  name                = "pip-vpn-gw-${var.prefix}"
+  location            = azurerm_resource_group.public.location
+  resource_group_name = azurerm_resource_group.public.name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+  zones               = ["1", "2", "3"]
+}
+
+##########################################################################
+# VPN GATEWAY
+##########################################################################
+
+resource "azurerm_virtual_network_gateway" "public" {
   name                = "vpn-gw-${var.prefix}"
   location            = azurerm_resource_group.public.location
   resource_group_name = azurerm_resource_group.public.name
@@ -149,10 +150,10 @@ resource "azurerm_virtual_network_gateway" "vpn_gw" {
   sku                 = "Basic"
 
   ip_configuration {
-    name                          = "vpn-gw-ipconfig-${var.prefix}"
-    public_ip_address_id          = azurerm_public_ip.vpn_gw_public_ip.id
+    name                          = "ipc-vpn-gw-${var.prefix}"
+    public_ip_address_id          = azurerm_public_ip.vpn_gw_pip.id
     private_ip_address_allocation = "Dynamic"
-    subnet_id                     = module.network.vpn_subnet_id
+    subnet_id                     = azurerm_subnet.gateway.id
   }
 
   vpn_client_configuration {
@@ -160,7 +161,7 @@ resource "azurerm_virtual_network_gateway" "vpn_gw" {
 
     root_certificate {
       name             = "VPNROOT"
-      public_cert_data = data.azurerm_key_vault_secret.vpn-root-certificate.value
+      public_cert_data = data.azurerm_key_vault_secret.root_certificate.value
     }
   }
 }

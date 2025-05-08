@@ -6,6 +6,5 @@
 *.tfstate
 *.lock.info
 *.tfstate.backup
-*.lock.hcl
 *.pub
 *.crt
