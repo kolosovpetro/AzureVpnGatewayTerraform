@@ -4,6 +4,11 @@ resource "azurerm_network_security_group" "public" {
   resource_group_name = azurerm_resource_group.public.name
 }
 
+resource "azurerm_subnet_network_security_group_association" "vm" {
+  subnet_id                 = azurerm_subnet.vm.id
+  network_security_group_id = azurerm_network_security_group.public.id
+}
+
 resource "azurerm_network_security_rule" "allow_ssh" {
   name                        = "AllowSSH"
   priority                    = 1000

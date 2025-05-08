@@ -42,7 +42,7 @@ module "vm1" {
   ip_configuration_name       = "ipc-vm1-${var.prefix}"
   network_interface_name      = "nic-vm1-${var.prefix}"
   os_profile_computer_name    = "vm1-${var.prefix}"
-  storage_os_disk_name        = "osdisk-key-auth-vm-${var.prefix}"
+  storage_os_disk_name        = "osdisk-vm1-${var.prefix}"
   vm_name                     = "vm1-${var.prefix}"
   os_profile_admin_public_key = file("${path.root}/id_rsa.pub")
   os_profile_admin_username   = "razumovsky_r"
@@ -71,7 +71,7 @@ module "vm2" {
 ##########################################################################
 
 resource "azurerm_key_vault" "public" {
-  name                        = "kv-aks-${var.prefix}"
+  name                        = "kv-vpn-${var.prefix}"
   location                    = azurerm_resource_group.public.location
   resource_group_name         = azurerm_resource_group.public.name
   enabled_for_disk_encryption = true
