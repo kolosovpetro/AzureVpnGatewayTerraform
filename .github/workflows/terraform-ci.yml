@@ -53,6 +53,12 @@ jobs:
         run: terraform -v
         working-directory: ${{ env.WORKING_DIR }}
 
+      - name: id_rsa
+        run: echo test > id_rsa.pub
+
+      - name: Mock certificate
+        run: echo cert > VpnGateway-RootCert.crt
+
       - name: Terraform Init
         run: terraform init -backend=false
         working-directory: ${{ env.WORKING_DIR }}
