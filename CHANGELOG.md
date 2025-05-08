@@ -11,5 +11,5 @@ and this project adheres to [Semantic Versioning v2.0.0](https://semver.org/spec
 
 - Provision VMs terraform
 - Add editor config
-- Configure VPN root certificate
+- Configure VPN root certificate using PowerShell script
 - Implement VPN gateway terraform
